@@ -24,9 +24,15 @@ const App = () => {
   const ref2 = useRef();
 
   const generatePDF = async (fitHeight) => {
+    // fitHeight
+    // ㄴ true - 세로가 A4 높이보다 높은 경우 비율을 세로에 맞춰 줄임
+    // ㄴ false - 세로가 A4 높이보다 높아도 잘라서 페이지 분할
     try {
       if (ref1.current && ref2.current) {
         const result1 = await html2canvas(ref1.current, {
+          // 이미지 사용할 경우 allowTaint, useCORS 사용
+          // S3 버킷인 경우 옵션 사용해도 이미지 출력이 되지 않음
+          // API 서버에서 S3 버킷에 있는 이미지를 전달하는 API를 개발 필요
           /* allowTaint: true,
           useCORS: true, */
         });
@@ -36,7 +42,6 @@ const App = () => {
         });
         const canvasArray = [result1, result2];
         const doc = new jsPDF('p', 'mm');
-        let position = 0;
 
         canvasArray.forEach((canvas, index) => {
           const imageData = canvas.toDataURL('image/png');
@@ -50,33 +55,27 @@ const App = () => {
           imageWidth *= resizeRatio;
           imageHeight *= resizeRatio;
           let restHeight = imageHeight;
+          let xPosition = (210 - imageWidth) / 2;
+          let yPosition = 0;
 
-          if (index > 0) {
-            doc.addPage();
-          }
-          doc.addImage(
-            imageData,
-            'PNG',
-            (210 - imageWidth) / 2,
-            position,
-            imageWidth,
-            imageHeight
-          );
-          restHeight -= pageHeight;
+          do {
+            if (index > 0) {
+              // 기본적으로 페이지 하나는 생성되어있음
+              // 첫 페이지가 아닐 경우에만 addPage
+              doc.addPage();
+            }
 
-          while (restHeight >= 20) {
-            position = restHeight - imageHeight;
-            doc.addPage();
+            yPosition = restHeight - imageHeight;
             doc.addImage(
               imageData,
               'PNG',
-              210 - imageWidth,
-              position,
+              xPosition,
+              yPosition,
               imageWidth,
               imageHeight
             );
             restHeight -= pageHeight;
-          }
+          } while (restHeight > 0);
         });
 
         doc.save('filename.pdf');
@@ -117,13 +116,13 @@ const App = () => {
             (넘치면 자르기)
           </Button>
         </Box>
-        <Box mt={3}>
+        <Box ref={ref1} mt={3}>
           <Box minWidth={700} display="flex" justifyContent="flex-start" p={1}>
             <Typography variant="h4" color="textPrimary">
               PDF page 1
             </Typography>
           </Box>
-          <Card ref={ref1} className={classes.card}>
+          <Card className={classes.card}>
             <Box minWidth={700}>
               <Table>
                 <colgroup>
@@ -159,13 +158,15 @@ const App = () => {
               </Table>
             </Box>
           </Card>
+        </Box>
 
+        <Box ref={ref2} mt={3}>
           <Box minWidth={700} display="flex" justifyContent="flex-start" p={1}>
             <Typography variant="h4" color="textPrimary">
               PDF page 2
             </Typography>
           </Box>
-          <Card ref={ref2} className={classes.card}>
+          <Card className={classes.card}>
             <Box minWidth={700}>
               <Table>
                 <colgroup>
